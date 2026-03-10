@@ -1,6 +1,6 @@
 # Clive Agent Container
 
-FROM node:22-slim
+FROM node:24-alpine
 
 # Install system dependencies for Chromium and tmux
 RUN apt-get update && apt-get install -y \
@@ -36,6 +36,9 @@ RUN npm install -g @anthropic-ai/claude-code obsidian-headless
 # Create app directory
 WORKDIR /app
 
+
+COPY . .
+
 # Install dependencies
 RUN npm install
 
@@ -61,4 +64,4 @@ USER node
 WORKDIR /clive
 
 # Entry point reads JSON from stdin, outputs JSON to stdout
-ENTRYPOINT ["/app/entrypoint.sh"]
+ENTRYPOINT ["tmux", "new -s claude"]
