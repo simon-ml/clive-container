@@ -61,10 +61,10 @@ WORKDIR /app
 COPY . .
 
 # Install dependencies
-RUN npm install
+#RUN npm install
 
 # Build TypeScript
-RUN npm run build
+#RUN npm run build
 
 # Create workspace directories
 RUN mkdir -p /clive
