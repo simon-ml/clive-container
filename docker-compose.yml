@@ -1,0 +1,19 @@
+services:
+  clive:
+    build:
+      context: container/
+      secrets:
+        - github_token
+    image: clive
+    container_name: clive
+    restart: unless-stopped
+    ports:
+      - "32352:32352"
+    volumes:
+      - /home/simon/docker-data/clive-container-data:/data
+    env_file:
+      - .env
+
+secrets:
+  github_token:
+    environment: GITHUB_TOKEN

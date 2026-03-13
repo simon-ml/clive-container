@@ -1,3 +1,4 @@
+# syntax=docker/dockerfile:1
 # Clive Agent Container
 
 FROM debian:latest
@@ -15,6 +16,8 @@ RUN apt-get update && apt-get install -y \
     wget \
     gnupg \
     g++ \
+    make \
+    python3 \
     apt-utils\
     git \
     && apt-get clean \
@@ -27,8 +30,8 @@ RUN apt-get update && apt-get install -y \
 
 ######################
 
-ENV NODE_VERSION 25.8.1
-ENV NVM_DIR /usr/local/nvm
+ENV NODE_VERSION=25.8.1
+ENV NVM_DIR=/usr/local/nvm
 
 RUN mkdir -p $NVM_DIR
 
@@ -51,32 +54,36 @@ ENV PATH="${NVM_DIR}/versions/node/v${NODE_VERSION}/bin:${PATH}"
 #RUN curl -fsSL https://claude.ai/install.sh | bash
 
 # Install claude-code globally
-RUN npm install -g @anthropic-ai/claude-code obsidian-headless
+RUN npm install -g @anthropic-ai/claude-code obsidian-headless claude-code-web
 #RUN npm install -g obsidian-headless
 
-# Create app directory
-WORKDIR /app
+# Clone clive repo using a build secret (token never baked into any layer)
+RUN --mount=type=secret,id=github_token \
+    bash -c 'TOKEN=$(tr -d "[:space:]" < /run/secrets/github_token) && GIT_TERMINAL_PROMPT=0 git clone https://oauth2:${TOKEN}@github.com/simon-ml/clive.git /clive && chown -R claude:claude /clive'
 
+# Clone obsidian vault to staging location (copied to /data/vault on first run)
+RUN --mount=type=secret,id=github_token \
+    bash -c 'TOKEN=$(tr -d "[:space:]" < /run/secrets/github_token) && GIT_TERMINAL_PROMPT=0 git clone https://oauth2:${TOKEN}@github.com/simon-ml/obsidian-vault.git /opt/vault-initial && chown -R claude:claude /opt/vault-initial'
 
-COPY . .
+# Set up ~/.claude from repo's .claude dir (or create empty dir)
+RUN if [ -d /clive/.claude ]; then \
+      ln -sf /clive/.claude /home/claude/.claude; \
+    else \
+      mkdir -p /home/claude/.claude; \
+    fi \
+    && chown -R claude:claude /home/claude/.claude
 
-# Install dependencies
-#RUN npm install
+# Install npm deps if the repo has a package.json
+RUN if [ -f /clive/package.json ]; then \
+      cd /clive && npm install; \
+    fi
 
-# Build TypeScript
-#RUN npm run build
+# Prepare persistent data directory and entrypoint
+RUN mkdir -p /data && chown claude:claude /data
+COPY --chmod=755 entrypoint.sh /usr/local/bin/entrypoint.sh
 
-# Create workspace directories
-RUN mkdir -p /clive
-
-# Create entrypoint script
-# Container input (prompt, group info) is passed via stdin JSON.
-# Credentials are injected by the host's credential proxy — never passed here.
-# Follow-up messages arrive via IPC files in /workspace/ipc/input/
-#RUN printf '#!/bin/bash\nset -e\ncd /app && npx tsc --outDir /tmp/dist 2>&1 >&2\nln -s /app/node_modules /tmp/dist/node_modules\nchmod -R a-w /tmp/dist\ncat > /tmp/input.json\nnode /tmp/dist/index.js < /tmp/input.json\n' > /app/entrypoint.sh && chmod +x /app/entrypoint.sh
-
-# Set ownership to node user (non-root) for writable directories
-RUN chown -R claude:claude /clive && chmod 777 /home/claude
+# Set ownership and permissions
+RUN chmod 777 /home/claude
 
 # Switch to non-root user (required for --dangerously-skip-permissions)
 #USER node
@@ -85,5 +92,7 @@ USER claude
 
 WORKDIR /clive
 
-# Entry point reads JSON from stdin, outputs JSON to stdout
-ENTRYPOINT ["tmux", "new -s claude"]
+EXPOSE 32352
+
+ENTRYPOINT ["entrypoint.sh"]
+CMD ["npx", "claude-code-web", "--no-open"]
