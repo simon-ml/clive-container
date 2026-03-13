@@ -12,7 +12,12 @@ RUN apt-get update && apt-get install -y \
     fonts-noto-cjk \
     fonts-noto-color-emoji \
     curl \
+    wget \
+    gnupg \
+    g++ \
+    apt-utils\
     git \
+    && apt-get clean \
     && rm -rf /var/lib/apt/lists/* 
 #    && npm --global install npm pm2 npx prisma \
 #    && rm -rf /opt/yarn* \
@@ -20,15 +25,23 @@ RUN apt-get update && apt-get install -y \
 #    && rm -rf /tmp/*
 
 
+######################
+
+ENV NODE_VERSION 25.8.1
 ENV NVM_DIR /usr/local/nvm
 
-RUN mkdir -p "$NVM_DIR"; \
-    curl -o- \ 
-        "https://raw.githubusercontent.com/nvm-sh/nvm/master/install.sh" | \ 
-        bash \
-    ; \
-    source $NVM_DIR/nvm.sh; \
-    nvm install --lts --latest-npm
+RUN mkdir -p $NVM_DIR
+
+RUN curl -o- https://raw.githubusercontent.com/nvm-sh/nvm/v0.39.7/install.sh | bash
+
+RUN . "${NVM_DIR}/nvm.sh" \
+    && nvm install $NODE_VERSION \
+    && nvm alias default $NODE_VERSION \
+    && nvm use $NODE_VERSION
+
+ENV PATH="${NVM_DIR}/versions/node/v${NODE_VERSION}/bin:${PATH}"
+
+######################
 
 
 # Set Chromium path for agent-browser
