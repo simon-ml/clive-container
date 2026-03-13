@@ -30,8 +30,11 @@ RUN apt-get update && apt-get install -y \
 ENV AGENT_BROWSER_EXECUTABLE_PATH=/usr/bin/chromium
 ENV PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH=/usr/bin/chromium
 
+RUN curl -fsSL https://claude.ai/install.sh | bash
+
 # Install claude-code globally
-RUN npm install -g @anthropic-ai/claude-code obsidian-headless
+# RUN npm install -g @anthropic-ai/claude-code obsidian-headless
+RUN npm install -g obsidian-headless
 
 # Create app directory
 WORKDIR /app
