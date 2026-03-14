@@ -7,13 +7,29 @@ if [ "$(id -u)" = "0" ]; then
     exec gosu claude "$0" "$@"
 fi
 
-# Persist Claude Code auth across rebuilds by storing it on the /data volume
-if [ -f /data/.claude.json ]; then
-    ln -sf /data/.claude.json /home/claude/.claude.json
-elif [ -f /home/claude/.claude.json ]; then
-    mv /home/claude/.claude.json /data/.claude.json
-    ln -sf /data/.claude.json /home/claude/.claude.json
-fi
+# Persist Claude Code state across rebuilds by storing on the /data volume
+# ~/.claude/ holds credentials (.credentials.json), settings, cache, etc.
+mkdir -p /data/.claude
+rm -rf /home/claude/.claude
+ln -sfn /data/.claude /home/claude/.claude
+
+# Sync clive hooks, skills, agents, mcp into global ~/.claude via symlinks
+# This makes them available regardless of working directory
+for dir in hooks skills agents mcp; do
+    if [ -d "/clive/$dir" ]; then
+        rm -rf "/data/.claude/$dir"
+        ln -sfn "/clive/$dir" "/data/.claude/$dir"
+    fi
+done
+
+# ~/.claude.json holds general state (userID, firstStartTime, etc.)
+ln -sf /data/.claude.json /home/claude/.claude.json
+
+# ~/.claude-code-web/ holds web UI sessions
+mkdir -p /data/.claude-code-web
+rm -rf /home/claude/.claude-code-web
+ln -sfn /data/.claude-code-web /home/claude/.claude-code-web
+
 
 # Initialize persistent vault from build-time clone on first run
 if [ ! -d /data/vault/.git ]; then
@@ -49,6 +65,12 @@ fi
 
 # Symlink the obsidian vault into the clive working directory
 ln -sfn /data/vault /clive/vault
+
+# Export container env vars so tmux sessions inherit them
+printenv | grep -vE '^(HOME|USER|SHELL|TERM|PATH|PWD|SHLVL|_)=' | while IFS='=' read -r key value; do
+    echo "export ${key}='${value}'"
+done > /home/claude/.container-env
+echo '. /home/claude/.container-env' >> /home/claude/.bashrc
 
 # Start a persistent tmux session for interactive access
 tmux new-session -d -s clive

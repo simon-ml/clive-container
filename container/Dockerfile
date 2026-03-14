@@ -59,21 +59,24 @@ RUN curl -fsSL https://claude.ai/install.sh | bash \
 # Install remaining npm packages
 RUN npm install -g obsidian-headless claude-code-web
 
-# Clone clive repo using a build secret (token never baked into any layer)
-RUN --mount=type=secret,id=github_token \
-    bash -c 'TOKEN=$(tr -d "[:space:]" < /run/secrets/github_token) && GIT_TERMINAL_PROMPT=0 git clone https://oauth2:${TOKEN}@github.com/simon-ml/clive.git /clive && chown -R claude:claude /clive'
+# Copy local clive repo into the container
+COPY --chown=claude:claude clive/ /clive/
 
-# Clone obsidian vault to staging location (copied to /data/vault on first run)
-RUN --mount=type=secret,id=github_token \
-    bash -c 'TOKEN=$(tr -d "[:space:]" < /run/secrets/github_token) && GIT_TERMINAL_PROMPT=0 git clone https://oauth2:${TOKEN}@github.com/simon-ml/obsidian-vault.git /opt/vault-initial && chown -R claude:claude /opt/vault-initial'
+# Fix project-level .claude/ symlinks (originally point to macOS paths)
+RUN rm -f /clive/.claude/agents /clive/.claude/rules && \
+    ln -s /clive/agents /clive/.claude/agents && \
+    ln -s /clive/rules  /clive/.claude/rules && \
+    ln -s /clive/skills /clive/.claude/skills && \
+    ln -s /clive/hooks  /clive/.claude/hooks && \
+    ln -s /clive/mcp    /clive/.claude/mcp && \
+    chown -h claude:claude /clive/.claude/*
 
-# Set up ~/.claude from repo's .claude dir (or create empty dir)
-RUN if [ -d /clive/.claude ]; then \
-      ln -sf /clive/.claude /home/claude/.claude; \
-    else \
-      mkdir -p /home/claude/.claude; \
-    fi \
-    && chown -R claude:claude /home/claude/.claude
+# Copy local obsidian vault to staging location (copied to /data/vault on first run)
+COPY --chown=claude:claude obsidian-vault/ /opt/vault-initial/
+
+# Claude Code global config dir — persisted to /data/.claude via entrypoint
+# Project config in /clive/.claude is loaded automatically since WORKDIR is /clive
+RUN mkdir -p /home/claude/.claude && chown claude:claude /home/claude/.claude
 
 # Install npm deps if the repo has a package.json
 RUN if [ -f /clive/package.json ]; then \
@@ -82,7 +85,7 @@ RUN if [ -f /clive/package.json ]; then \
 
 # Prepare persistent data directory and entrypoint
 RUN mkdir -p /data && chown claude:claude /data
-COPY --chmod=755 entrypoint.sh /usr/local/bin/entrypoint.sh
+COPY --chmod=755 container/entrypoint.sh /usr/local/bin/entrypoint.sh
 
 # Set ownership and permissions
 RUN chmod 777 /home/claude

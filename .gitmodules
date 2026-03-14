@@ -1,0 +1,3 @@
+[submodule "clive"]
+	path = clive
+	url = https://github.com/simon-ml/clive.git

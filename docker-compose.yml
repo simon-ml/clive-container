@@ -1,9 +1,8 @@
 services:
   clive:
     build:
-      context: container/
-      secrets:
-        - github_token
+      context: .
+      dockerfile: container/Dockerfile
     image: clive
     container_name: clive
     restart: unless-stopped
@@ -14,6 +13,3 @@ services:
     env_file:
       - .env
 
-secrets:
-  github_token:
-    environment: GITHUB_TOKEN

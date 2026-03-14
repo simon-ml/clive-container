@@ -1,0 +1,7 @@
+.git
+.env
+*.md
+build.sh
+docker-compose.yml
+clive/.git
+obsidian-vault/.git
