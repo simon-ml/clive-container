@@ -1,3 +1,9 @@
 [submodule "clive"]
 	path = clive
 	url = https://github.com/simon-ml/clive.git
+[submodule "vault"]
+	path = vault
+	url = https://github.com/simon-ml/obsidian-vault.git
+[submodule "obsidian-vault"]
+	path = obsidian-vault
+	url = https://github.com/simon-ml/obsidian-vault.git
