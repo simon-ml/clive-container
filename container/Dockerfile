@@ -95,4 +95,4 @@ WORKDIR /clive
 EXPOSE 32352
 
 ENTRYPOINT ["entrypoint.sh"]
-CMD ["npx", "claude-code-web", "--no-open"]
+CMD ["npx", "claude-code-web", "--no-open", "--auth qubkok-vofzU5-tucquk"]
