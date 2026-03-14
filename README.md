@@ -63,6 +63,51 @@ Dockerized [Claude Code](https://github.com/anthropics/claude-code) agent with O
     └── entrypoint.sh        # Runtime init (vault sync, etc.)
 ```
 
+## Container Folder Structure
+
+```
+/
+├── clive/                    ← WORKDIR (cloned from github)
+│   ├── .claude/              ← Claude Code config (symlinked from repo)
+│   │   ├── agents/
+│   │   ├── hooks/
+│   │   └── rules/
+│   ├── CLAUDE.md
+│   ├── CONTEXT.md
+│   ├── agents/               ← Custom agent definitions (architect, debugger, etc.)
+│   ├── config/settings.json
+│   ├── content/log.md
+│   ├── hooks/                ← Git/permission hooks
+│   ├── mcp/                  ← MCP server configs
+│   ├── rules/                ← Project rules (git, obsidian, routines)
+│   ├── sessions/             ← Session logs
+│   ├── skills/               ← Skills (journal, archive, sync, etc.)
+│   ├── state/current.md
+│   └── vault/                ← Symlink → /data/vault (created at runtime)
+│
+├── data/                     ← Persistent volume (mounted from host)
+│   └── vault/                ← Obsidian vault (copied on first run)
+│       ├── 0_Daily/
+│       ├── 1_Life/
+│       ├── 2_Work/
+│       ├── 3_Library/
+│       ├── 8_Templates/
+│       └── 9_Archive/
+│
+├── opt/vault-initial/        ← Build-time vault clone (template)
+│
+└── home/claude/              ← User home
+    ├── .claude               ← Symlink → /clive/.claude
+    ├── .claude-code-web/
+    └── .claude.json
+```
+
+- `/clive` is the working directory with all agent config, skills, and rules
+- `/clive/vault` is a symlink to `/data/vault`, so the Obsidian vault is accessible as a subdirectory of the working directory
+- `/data` is the only persistent directory (host volume) — everything else is rebuilt on `docker compose up --build`
+- `/opt/vault-initial` is the build-time snapshot; it gets copied to `/data/vault` only on first run
+- `/home/claude/.claude` symlinks back to `/clive/.claude` so Claude Code picks up project config
+
 ## Data Persistence
 
 The container mounts a host volume for persistent data:
@@ -80,6 +125,14 @@ If `OBSIDIAN_EMAIL`, `OBSIDIAN_PASSWORD`, and `OBSIDIAN_VAULT` are set, the entr
 1. Log in to Obsidian (with optional MFA)
 2. Set up sync for the specified vault at `/data/vault`
 3. Run continuous sync in the background
+
+## Interactive Access
+
+The container starts a persistent tmux session called `clive`. Attach to it anytime the container is running:
+
+```bash
+docker exec -it -u claude clive tmux attach -t clive
+```
 
 ## Rebuilding
 

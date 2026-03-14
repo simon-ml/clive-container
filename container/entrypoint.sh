@@ -1,6 +1,20 @@
 #!/bin/bash
 set -e
 
+# Fix /data ownership if needed (runs as root, then drops to claude via gosu)
+if [ "$(id -u)" = "0" ]; then
+    chown claude:claude /data
+    exec gosu claude "$0" "$@"
+fi
+
+# Persist Claude Code auth across rebuilds by storing it on the /data volume
+if [ -f /data/.claude.json ]; then
+    ln -sf /data/.claude.json /home/claude/.claude.json
+elif [ -f /home/claude/.claude.json ]; then
+    mv /home/claude/.claude.json /data/.claude.json
+    ln -sf /data/.claude.json /home/claude/.claude.json
+fi
+
 # Initialize persistent vault from build-time clone on first run
 if [ ! -d /data/vault/.git ]; then
     echo "Initializing obsidian vault in /data/vault..."
@@ -32,5 +46,11 @@ if [ -n "$OBSIDIAN_VAULT" ]; then
     echo "Starting Obsidian Sync (continuous)..."
     ob sync --path /data/vault --continuous &
 fi
+
+# Symlink the obsidian vault into the clive working directory
+ln -sfn /data/vault /clive/vault
+
+# Start a persistent tmux session for interactive access
+tmux new-session -d -s clive
 
 exec "$@"

@@ -20,6 +20,7 @@ RUN apt-get update && apt-get install -y \
     python3 \
     apt-utils\
     git \
+    gosu \
     && apt-get clean \
     && rm -rf /var/lib/apt/lists/* 
 #    && npm --global install npm pm2 npx prisma \
@@ -51,11 +52,12 @@ ENV PATH="${NVM_DIR}/versions/node/v${NODE_VERSION}/bin:${PATH}"
 #ENV AGENT_BROWSER_EXECUTABLE_PATH=/usr/bin/chromium
 #ENV PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH=/usr/bin/chromium
 
-#RUN curl -fsSL https://claude.ai/install.sh | bash
+# Install Claude Code via native installer, then copy binary to /usr/local/bin for all users
+RUN curl -fsSL https://claude.ai/install.sh | bash \
+    && cp /root/.local/bin/claude /usr/local/bin/claude
 
-# Install claude-code globally
-RUN npm install -g @anthropic-ai/claude-code obsidian-headless claude-code-web
-#RUN npm install -g obsidian-headless
+# Install remaining npm packages
+RUN npm install -g obsidian-headless claude-code-web
 
 # Clone clive repo using a build secret (token never baked into any layer)
 RUN --mount=type=secret,id=github_token \
@@ -85,14 +87,10 @@ COPY --chmod=755 entrypoint.sh /usr/local/bin/entrypoint.sh
 # Set ownership and permissions
 RUN chmod 777 /home/claude
 
-# Switch to non-root user (required for --dangerously-skip-permissions)
-#USER node
-# Switch to non-root user Set working directory to group workspace
-USER claude
-
+# Entrypoint runs as root to fix volume permissions, then drops to claude via gosu
 WORKDIR /clive
 
 EXPOSE 32352
 
 ENTRYPOINT ["entrypoint.sh"]
-CMD ["npx", "claude-code-web", "--no-open", "--plan pro", "--auth qubkok-vofzU5-tucquk"]
+CMD ["npx", "claude-code-web", "--no-open", "--plan", "pro", "--auth", "qubkok-vofzU5-tucquk"]
